@@ -1,0 +1,9 @@
+# After: conda create -n metaworld python=3.10 -y && conda activate metaworld
+# Matches the MetaWorld eval stack; pyyaml is for metaworld_eval.yaml.
+mujoco
+metaworld
+websockets
+opencv-python
+packaging
+huggingface_hub
+pyyaml
