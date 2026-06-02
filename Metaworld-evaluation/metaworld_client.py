@@ -31,7 +31,7 @@ def _default_flat_config() -> dict:
         "episodes_per_task": 10,
         "episode_horizon": 400,
         "target_level": "all",
-        "state_take": 8,
+        "state_take": 4,
         "action_horizon": 17,
         "fallback_use_first_n": 5,
         "fallback_idx_list": None,
