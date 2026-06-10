@@ -1,5 +1,23 @@
-# EvoDepth
+# EvoDepth - Jetson Orin Nano 适配版
+
 [![arXiv](https://img.shields.io/badge/arXiv-2605.14950-b31b1b.svg)](https://arxiv.org/abs/2605.14950)
+
+## 本仓库说明
+
+此仓库为 Evo-Depth 的 **Jetson Orin Nano 适配版本**，基于原项目进行了以下改进：
+
+- 调整项目文件结构，优化评估脚本组织
+- 更新 requirements.txt 为 Jetson 环境专属配置
+- 修复硬编码路径问题，提高可移植性
+- 添加详细的 Jetson 部署说明
+
+## 原项目信息
+
+**原作者项目**: [MINT-SJTU/Evo-Depth](https://github.com/MINT-SJTU/Evo-Depth)
+
+**论文**: [Evo-Depth: Progressive Alignment Training for Depth-Enhanced Robotic Manipulation](https://arxiv.org/abs/2605.14950)
+
+---
 
 Evo-Depth is a lightweight depth-enhanced vision-language-action (VLA) policy for robotic manipulation. It combines a vision-language backbone, an Implicit Depth Encoding Module (IDEM), and a Spatial Enhancement Module (SEM), then predicts continuous action chunks with a flow-matching action expert. The policy takes multi-view RGB observations, robot state, and a language instruction as input.
 
@@ -53,7 +71,44 @@ High-level pipeline: multi-view RGB, language instruction, and robot state flow 
   <img src="Evo_depth/assets/model_overview.png" alt="EvoDepth model architecture overview" width="92%">
 </p>
 
-## Installation
+## Jetson Orin Nano 快速开始
+
+本仓库专为 Jetson Orin Nano (JetPack 6.x) 优化。
+
+### 前提条件
+
+- 已安装 JetPack 6.x (L4T)
+- Python 3.10
+- CUDA 12.x
+
+### 安装步骤
+
+```bash
+# 1. 创建并激活环境
+conda create -n evo_depth python=3.10 -y
+conda activate evo_depth
+
+# 2. 安装依赖
+pip install -r requirements.txt
+
+# 3. 注意: 安装 flash-attn 和 gsplat 可能需要较长时间
+# 若遇到内存不足，建议降低 MAX_JOBS 或增加 Swap
+MAX_JOBS=4 pip install -v flash-attn --no-build-isolation
+pip install --no-build-isolation git+https://github.com/nerfstudio-project/gsplat.git@0b4dddf04cb687367602c01196913cde6a743d70
+
+# 4. 准备权重
+# 将预训练权重放置在 weights/ 目录下
+# 设置环境变量指向正确的权重目录
+export EVO_DEPTH_CKPT_DIR=/path/to/checkpoint/libero_spatial
+
+# 5. 启动服务
+cd Evo_depth
+python scripts/Evo_depth_server.py
+```
+
+---
+
+## 标准安装 (非 Jetson 平台)
 
 ```bash
 git clone https://github.com/MINT-SJTU/Evo-Depth.git
