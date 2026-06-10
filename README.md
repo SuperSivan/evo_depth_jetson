@@ -91,6 +91,24 @@ conda activate evo_depth
 # 2. 安装依赖
 pip install -r requirements.txt
 
+# 2a. 编译安装 pycolmap (Jetson 平台必须从源码编译)
+# 首先安装系统依赖
+sudo apt update && sudo apt install -y \
+    cmake build-essential libeigen3-dev libgoogle-glog-dev \
+    libgflags-dev libfreeimage-dev libmetis-dev libatlas-base-dev \
+    libsuitesparse-dev libceres-dev libboost-all-dev
+
+# 克隆并编译 pycolmap
+cd /tmp
+git clone https://github.com/colmap/pycolmap.git
+cd pycolmap
+git checkout v0.6.0
+
+# 使用系统 colmap (若已安装)
+cmake -B build -S . -DBUILD_SHARED_LIBS=ON
+cmake --build build -j4
+pip install -e .
+
 # 3. 注意: 安装 flash-attn 和 gsplat 可能需要较长时间
 # 若遇到内存不足，建议降低 MAX_JOBS 或增加 Swap
 MAX_JOBS=4 pip install -v flash-attn --no-build-isolation
