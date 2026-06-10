@@ -63,6 +63,12 @@ def load_model_and_normalizer(ckpt_dir):
     config = json.load(open(os.path.join(ckpt_dir, "config.json")))
     stats = json.load(open(os.path.join(ckpt_dir, "norm_stats.json")))
 
+    # Resolve relative paths in config
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    for key in ["vlm_name", "da3_model_path"]:
+        if key in config and isinstance(config[key], str) and not config[key].startswith("/"):
+            config[key] = os.path.join(repo_root, config[key])
+
     config["finetune_vlm"] = False
     config["finetune_action_head"] = False
     config["num_inference_timesteps"] = 50

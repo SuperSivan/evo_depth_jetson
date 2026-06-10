@@ -2,14 +2,13 @@
 # Evo-Depth LIBERO 评估 — 在两个终端分别执行以下命令
 #
 # ┌─────────────────────────────────────────────────────────────────────────┐
-# │ 终端 1：模型 WebSocket 服务（端口 9000）                                  │
-# └─────────────────────────────────────────────────────────────────────────┘
-# cd /userdata/liuqi/vla/Evo-Depth/Evo_depth && python scripts/Evo_depth_server.py
+# 终端 1：模型 WebSocket 服务（端口 9000）
+# cd Evo_depth && python scripts/Evo_depth_server.py
 #
 # ┌─────────────────────────────────────────────────────────────────────────┐
 # │ 终端 2：LIBERO 仿真客户端（可选 Web 推流）                                │
 # └─────────────────────────────────────────────────────────────────────────┘
-# cd /userdata/liuqi/vla/Evo-Depth/simulator_evaluation/LIBERO-evaluation \
+# cd simulator_evaluation/LIBERO-evaluation \
 #   && bash ./test_libero.sh ./logs libero_spatial ws://127.0.0.1:9000 8080
 #
 # test_libero.sh 参数:

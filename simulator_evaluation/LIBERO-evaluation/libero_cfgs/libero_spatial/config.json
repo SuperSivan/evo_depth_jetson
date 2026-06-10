@@ -1,8 +1,8 @@
 {
   "device": "cuda",
   "run_name": "Evo_da3_film_true_masked_spatial_3stages_stage3_test12w",
-  "vlm_name": "/userdata/liuqi/vla/Evo-Depth/weights/InternVL3-1B",
-  "da3_model_path": "/userdata/liuqi/vla/Evo-Depth/weights/da3-base",
+  "vlm_name": "weights/InternVL3-1B",
+  "da3_model_path": "weights/da3-base",
   "action_head": "flowmatching",
   "return_cls_only": false,
   "disable_wandb": true,
