@@ -110,13 +110,16 @@ pip install -e .
 MAX_JOBS=4 pip install -v flash-attn --no-build-isolation
 pip install --no-build-isolation git+https://github.com/nerfstudio-project/gsplat.git@0b4dddf04cb687367602c01196913cde6a743d70
 
-# 3. 准备权重
-# 将预训练权重放置在 weights/ 目录下
-# 设置环境变量指向正确的权重目录
-export EVO_DEPTH_CKPT_DIR=/path/to/checkpoint/libero_spatial
+### 准备权重
 
-# 4. 运行 Demo
-# 请参考根目录下的 run.sh 获取运行方法
+请将预训练权重放置在 `weights/` 目录下。
+
+### 运行 Demo
+
+本仓库专为 Jetson Orin Nano 优化，建议通过根目录下的 `run.sh` 脚本一键启动：
+
+```bash
+# 启动服务器与仿真环境客户端
 bash run.sh
 ```
 
@@ -128,6 +131,8 @@ bash run.sh
 git clone https://github.com/MINT-SJTU/Evo-Depth.git
 
 cd Evo_depth
+conda create -n evo_depth python=3.10 -y
+conda activate evo_depth
 pip install -r requirements.txt
 MAX_JOBS=64 pip install -v flash-attn --no-build-isolation
 pip install --no-build-isolation git+https://github.com/nerfstudio-project/gsplat.git@0b4dddf04cb687367602c01196913cde6a743d70 # for gaussian head
@@ -188,8 +193,12 @@ Optional: `export EVO_DEPTH_SERVER_PORT=9000` (default). Or edit defaults in `Ev
 #### 1. Prepare the environment for LIBERO
 
 ```bash
-cd LIBERO-evaluation/
+conda create -n libero python=3.8.13 -y
 
+conda activate libero
+
+cd LIBERO-evaluation/
+```
 git clone https://github.com/Lifelong-Robot-Learning/LIBERO.git
 
 cd LIBERO
@@ -207,11 +216,19 @@ Use the **LIBERO** row in [Download pretrained weights](#download-pretrained-wei
 
 #### 2. Run LIBERO evaluation
 
-请参考根目录下的 `run.sh` 获取运行方法：
+```bash
+# Terminal 1
+conda activate evo_depth
+cd Evo_depth
+python scripts/Evo_depth_server.py
+```
 
 ```bash
-# 启动服务器与客户端
-bash run.sh
+cd LIBERO-evaluation
+
+# Usage: bash ./test_libero.sh [log_path] [task] [server_url]
+# example:
+bash ./test_libero.sh ./logs libero_spatial ws://127.0.0.1:9000
 ```
 
 ---
@@ -227,11 +244,35 @@ Use the same **LIBERO** checkpoint as above; pick the suite that matches your `-
 
 #### 2. Run LIBERO-PLUS evaluation
 
-请参考根目录下的 `run.sh` 获取运行方法：
+EvoDepth provides a small wrapper client and script in `LIBERO-PLUS-evaluation/`. Run the client from the **LIBERO-PLUS-evaluation** root. The client defaults to `ws://127.0.0.1:9000`, same as the EvoDepth server.
+
+##### 2.1 Start EvoDepth server
+
+This is the same server used for LIBERO:
 
 ```bash
-# 启动服务器与客户端
-bash run.sh
+# Terminal 1
+conda activate evo_depth
+cd Evo_depth
+python scripts/Evo_depth_server.py
+```
+
+##### 2.2 Run LIBERO-PLUS client
+
+In another terminal:
+
+```bash
+cd LIBERO-PLUS-evaluation
+
+# Usage:
+# bash ./test_libero_plus.sh <log_path> [task] [filter_category]
+#   log_path: directory to save log.txt and videos
+#   task    : libero_spatial | libero_goal | libero_object | libero_10
+#             (default: libero_spatial)
+#   filter_category : camera robot language light background noise layout
+
+# Example:
+bash ./test_libero_plus.sh  ./logs libero_spatial camera
 ```
 
 ---
@@ -243,8 +284,10 @@ bash run.sh
 Install MuJoCo, Meta-World, and client deps:
 
 ```bash
+conda create -n metaworld python=3.10 -y
+conda activate metaworld
 pip install mujoco
-pip install metaworld
+```pip install metaworld
 pip install websockets
 pip install opencv-python
 pip install packaging
@@ -278,6 +321,7 @@ Use the **MetaWorld** checkpoint from [Download pretrained weights](#download-pr
 Terminal 1 - EvoDepth server:
 
 ```bash
+conda activate evo_depth
 cd Evo_depth
 python scripts/Evo_depth_server.py
 ```
@@ -308,8 +352,10 @@ Each run creates `<log_dir>/<run_name>/eval.txt` and `<log_dir>/<run_name>/video
 cd VLA-Arena-evaluation
 git clone https://github.com/PKU-Alignment/VLA-Arena.git
 cd VLA-Arena
+conda create -n vla_arena python=3.11
+conda activate vla_arena
 pip install .
-pip install websockets==15.0.1 draccus
+```pip install websockets==15.0.1 draccus
 ```
 
 Use the **VLA-Arena** checkpoint from [Download pretrained weights](#download-pretrained-weights).
@@ -318,11 +364,12 @@ Use the **VLA-Arena** checkpoint from [Download pretrained weights](#download-pr
 
 ##### 2.1 Start EvoDepth server
 
-请参考根目录下的 `run.sh` 获取运行方法：
+This is the same server used for LIBERO:
 
 ```bash
-# 启动服务器与客户端
-bash run.sh
+conda activate evo_depth
+cd Evo_depth
+python scripts/Evo_depth_server.py
 ```
 
 ---
@@ -332,6 +379,7 @@ bash run.sh
 In the other terminal, you can run the evaluation scripts.
 
 ```bash
+conda activate vla_arena
 cd VLA-Arena-evaluation
 python vla_arena/vla_arena_client.py  \
 --execution_horizon 10     \
@@ -383,6 +431,7 @@ Preprocessed windows are cached as `.pkl` files.
 From the inner package directory `Evo_depth/` (where `train.sh`, `ds_config.json`, and `scripts/train.py` live):
 
 ```bash
+conda activate evo_depth
 cd Evo_depth
 accelerate config   # once per machine; multi-GPU: set num_processes accordingly
 ```
@@ -403,6 +452,7 @@ Before running, edit `[Evo_depth/train.sh](Evo_depth/train.sh)` and update:
 Then launch training from the inner package directory:
 
 ```bash
+conda activate evo_depth
 cd Evo_depth
 bash train.sh
 ```
