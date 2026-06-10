@@ -1,3 +1,22 @@
+# =============================================================================
+#  Evo-Depth - Jetson Orin Nano 适配配置
+# =============================================================================
+#  此 requirements.txt 专为 NVIDIA Jetson Orin Nano (JetPack 6.x) 优化配置
+#
+#  环境信息:
+#  - 硬件: NVIDIA Jetson Orin Nano
+#  - 系统: JetPack 6.x (L4T)
+#  - Python: 3.10
+#  - PyTorch: 2.5.0 (官方 Jetson 版本)
+#  - CUDA: 12.x
+#
+#  安装建议:
+#  1. 建议先安装 NVIDIA 官方的 PyTorch 轮子，再安装其他依赖
+#  2. 确保使用正确的 Python 环境
+#  3. 注意: torch 和 torchvision 已锁定为 Jetson 兼容版本
+#
+# =============================================================================
+
 absl-py==2.4.0
 accelerate==1.13.0
 addict==2.4.0
