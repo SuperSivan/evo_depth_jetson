@@ -7,10 +7,10 @@ import os
 
     
 class DAV3Module(nn.Module):
-    def __init__(self, config=None):
+    def __init__(self, config=None, model_path="depth-anything/da3-base"):
         super(DAV3Module, self).__init__()
         
-        self.model = DepthAnything3.from_pretrained("depth-anything/da3-base", )
+        self.model = DepthAnything3.from_pretrained(model_path)
         
         
 

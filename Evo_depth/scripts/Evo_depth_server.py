@@ -13,7 +13,6 @@ from torchvision import transforms
 from fvcore.nn import FlopCountAnalysis
 
 
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from scripts.Evo_depth import Evo_depth
 
@@ -144,11 +143,19 @@ async def handle_request(websocket, model, normalizer):
 # === Start server ===
 if __name__ == "__main__":
     # Directory must contain config.json, norm_stats.json, mp_rank_00_model_states.pt
-    ckpt_dir = os.environ.get("EVO_DEPTH_CKPT_DIR", "/path/to/checkpoint")
+    _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    _default_ckpt_dir = os.path.join(
+        _repo_root,
+        "simulator_evaluation",
+        "LIBERO-evaluation",
+        "libero_cfgs",
+        "libero_spatial",
+    )
+    ckpt_dir = os.environ.get("EVO_DEPTH_CKPT_DIR", _default_ckpt_dir)
 
     port = int(os.environ.get("EVO_DEPTH_SERVER_PORT", "9000"))
 
-    print("Loading Evo_depth model...")
+    print(f"Loading Evo_depth model from {ckpt_dir}...")
     model, normalizer = load_model_and_normalizer(ckpt_dir)
 
     async def main():

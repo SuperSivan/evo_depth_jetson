@@ -70,6 +70,18 @@ def get_args():
     )
     parser.add_argument("--log_file", type=str, default=None, help="Log file path")
     parser.add_argument("--video_log_dir", type=str, default=None, help="Video save directory")
+    parser.add_argument(
+        "--stream_port",
+        type=int,
+        default=None,
+        help="Enable MJPEG web stream on this port (e.g. 8080). Open http://<host>:<port>/ in browser.",
+    )
+    parser.add_argument(
+        "--stream_host",
+        type=str,
+        default="0.0.0.0",
+        help="Host to bind the web stream server (default: 0.0.0.0)",
+    )
 
     parsed = parser.parse_args()
 
@@ -170,6 +182,13 @@ def get_libero_env(task, resolution=448, seed=args.SEED):
     return env, task_description
 
 
+def build_frame(obs):
+    return np.hstack([
+        np.rot90(obs["agentview_image"], 2),
+        np.rot90(obs["robot0_eye_in_hand_image"], 2),
+    ])
+
+
 def save_video(frames, filename="simulation.mp4", fps=20, save_dir="videos_2"):
     os.makedirs(save_dir, exist_ok=True)
     filepath = os.path.join(save_dir, filename)
@@ -181,7 +200,14 @@ def save_video(frames, filename="simulation.mp4", fps=20, save_dir="videos_2"):
         log.warning(f"⚠️ No frame data, video was not generated: {filepath}")
 
 
-async def run(SERVER_URL: str, max_steps: int = None, num_episodes: int = None, horizon = None, task_suite_name = None):
+async def run(
+    SERVER_URL: str,
+    max_steps: int = None,
+    num_episodes: int = None,
+    horizon=None,
+    task_suite_name=None,
+    streamer=None,
+):
     benchmark_dict = benchmark.get_benchmark_dict()
     task_suite = benchmark_dict[task_suite_name]()
     num_tasks_in_suite = task_suite.n_tasks
@@ -290,11 +316,16 @@ async def run(SERVER_URL: str, max_steps: int = None, num_episodes: int = None, 
                             break
 
                         
-                        frame = np.hstack([
-                            np.rot90(obs["agentview_image"], 2),
-                            np.rot90(obs["robot0_eye_in_hand_image"], 2)
-                        ])
+                        frame = build_frame(obs)
                         frames.append(frame)
+                        if streamer is not None:
+                            streamer.update(
+                                frame,
+                                task_id=task_id + 1,
+                                episode=ep + 1,
+                                step=max_step,
+                                status="success" if done else "running",
+                            )
 
                         # print(f"[Step {step}] reward={reward:.2f}, done={done}")
                         if done:
@@ -336,6 +367,18 @@ if __name__ == "__main__":
     np.random.seed(args.SEED)
     random.seed(args.SEED)
     os.environ["PYTHONHASHSEED"] = str(args.SEED)
+
+    streamer = None
+    if args.stream_port is not None:
+        from web_stream import WebStreamServer
+
+        streamer = WebStreamServer(host=args.stream_host, port=args.stream_port)
+        streamer.start()
+        log.info(
+            f"Web stream enabled: http://127.0.0.1:{args.stream_port}/ "
+            f"(MJPEG: /video)"
+        )
+
     for name, max_steps, horizon in zip(args.task_suites, args.max_steps, args.horizons):
         asyncio.run(
             run(
@@ -344,5 +387,6 @@ if __name__ == "__main__":
                 num_episodes=args.num_episodes,
                 horizon=horizon,
                 task_suite_name=name,
+                streamer=streamer,
             )
         )

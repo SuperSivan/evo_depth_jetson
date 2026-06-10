@@ -16,8 +16,14 @@ class Evo_depth(nn.Module):
         self._device = config.get("device", "cuda")
         self.return_cls_only = config.get("return_cls_only", False)
         vlm_name = config.get("vlm_name", "OpenGVLab/InternVL3-1B")
+        da3_model_path = config.get("da3_model_path", "depth-anything/da3-base")
         self.use_da3 = config.get("use_da3", False)
-        self.embedder = InternVL3Embedder(model_name=vlm_name, device=self._device, use_da3=self.use_da3)
+        self.embedder = InternVL3Embedder(
+            model_name=vlm_name,
+            device=self._device,
+            use_da3=self.use_da3,
+            da3_model_path=da3_model_path,
+        )
 
         action_head_type = config.get("action_head", "flowmatching").lower()
         

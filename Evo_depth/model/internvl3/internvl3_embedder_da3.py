@@ -72,7 +72,14 @@ def dynamic_preprocess(image, min_num=1, max_num=1, image_size=448, use_thumbnai
     return processed_images
 
 class InternVL3Embedder(nn.Module):
-    def __init__(self, model_name="OpenGVLab/InternVL3-1B", image_size=448, device="cuda",use_da3=False):
+    def __init__(
+        self,
+        model_name="OpenGVLab/InternVL3-1B",
+        image_size=448,
+        device="cuda",
+        use_da3=False,
+        da3_model_path="depth-anything/da3-base",
+    ):
         super().__init__()
         self.device = device
         self.image_size = image_size
@@ -107,7 +114,7 @@ class InternVL3Embedder(nn.Module):
         
         if self.use_da3:
             
-            self.dpt_embedder = DAV3Module()
+            self.dpt_embedder = DAV3Module(model_path=da3_model_path)
             
             self.dpt_embedder.to(self.device)
 

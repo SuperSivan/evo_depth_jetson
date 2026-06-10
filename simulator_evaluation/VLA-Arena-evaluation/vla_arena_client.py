@@ -9,6 +9,8 @@ python vla_arena/vla_arena_client.py  \
 --save_video_mode all \
 --max_episode_steps 300 
 '''
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 import json
 import logging
 import math
