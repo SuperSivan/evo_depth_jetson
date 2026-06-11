@@ -109,12 +109,13 @@ pip install -e .
 # 若遇到内存不足，建议降低 MAX_JOBS 或增加 Swap
 MAX_JOBS=4 pip install -v flash-attn --no-build-isolation
 pip install --no-build-isolation git+https://github.com/nerfstudio-project/gsplat.git@0b4dddf04cb687367602c01196913cde6a743d70
+```
 
 ### 准备权重
 
 请将预训练权重放置在 `weights/` 目录下。
 
-### 运行 Demo
+## Jetson Demo 运行（`run.sh`）
 
 本仓库专为 Jetson Orin Nano 优化，建议通过根目录下的 `run.sh` 脚本一键启动：
 
@@ -122,6 +123,54 @@ pip install --no-build-isolation git+https://github.com/nerfstudio-project/gspla
 # 启动服务器与仿真环境客户端
 bash run.sh
 ```
+
+## Jetson 推理测速（benchmark）
+
+仓库提供了根目录一键测速脚本 `benchmark_max_perf.sh`：
+
+- 自动切换到高性能电源模式（优先 `MAXN_SUPER`）
+- 自动执行 `jetson_clocks` 锁频
+- 启动 `Evo_depth/scripts/benchmark_evo_depth.py` 并透传参数
+- 可选记录 `tegrastats` 日志
+
+#### 1) 一键满性能 + 随机输入测速
+
+```bash
+bash benchmark_max_perf.sh -- --num_warmup 5 --num_iterations 30 --input_mode random
+```
+
+#### 2) 使用真实图片测速
+
+```bash
+bash benchmark_max_perf.sh -- \
+  --input_mode real \
+  --image_paths ./path/to/cam0.jpg ./path/to/cam1.jpg ./path/to/cam2.jpg \
+  --num_warmup 5 \
+  --num_iterations 30
+```
+
+#### 3) 记录 tegrastats 监控日志（可选）
+
+```bash
+bash benchmark_max_perf.sh \
+  --tegrastats-log ./docs/tegrastats_benchmark.log \
+  -- \
+  --num_warmup 5 \
+  --num_iterations 30 \
+  --input_mode random
+```
+
+`benchmark_evo_depth.py` 输出指标包含：
+
+- 平均/中位数/P99 延迟
+- 吞吐量（FPS）
+- 平均显存、峰值显存
+- 平均功耗、最大功耗（若可用 NVML 或 `tegrastats`）
+
+参考产物：
+
+- 原始日志：`docs/benchmark_run_20260611.txt`
+- 报告示例：`docs/benchmark_report_20260611.md`
 
 ---
 

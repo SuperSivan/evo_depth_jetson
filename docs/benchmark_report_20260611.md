@@ -7,7 +7,7 @@
 ## 2. 测试环境
 
 - 设备：NVIDIA Jetson Orin Nano Engineering Reference Developer Kit Super
-- 运行目录：`/userdata/liuqi/vla/Evo-Depth`
+- 运行目录：仓库根目录 `./`
 - 功耗模式：`MAXN_SUPER`
 - 频率状态：`jetson_clocks` 已锁频
   - CPU：6 核 `1728 MHz`（Min=Max）
