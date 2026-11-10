@@ -83,6 +83,19 @@ python -u Evo_depth/scripts/benchmark_evo_depth.py \
 python tools/bench_breakdown.py     # 分段耗时
 ```
 
+本机实测（`libero_spatial`，50 步采样，bf16，MAXN_SUPER 且时钟已锁）：
+
+| 指标 | 数值 |
+|---|---|
+| 平均 / 中位 / P99 延迟 | 2033.25 / 2033.04 / 2042.52 ms |
+| 吞吐 | 0.49 FPS |
+| 显存 平均 / 峰值 | 2631 / 3152 MB |
+| 功耗 平均 / 峰值 | 7.59 / 7.63 W |
+| 分段占比 | vision(InternVL3-1B+DA3) 1276 ms / 60.6%，动作头 831 ms / 39.5% |
+
+websocket 往返 3.749 s，其中 1.716 s 是 9.5 MB JSON 的编解码与传输。
+分段明细与对照见 [DEPLOY_NOTES.md](DEPLOY_NOTES.md) 第 5、7 节，原始数据在 `results/`。
+
 ## 文档与产物
 
 | 文件 | 内容 |
