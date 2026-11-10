@@ -1,0 +1,107 @@
+{
+  "label": "evo-depth.libero_spatial.pytorch",
+  "status": "ok",
+  "env": {
+    "hostname": "tegra-ubuntu",
+    "machine": "aarch64",
+    "kernel": "6.8.12-1021-tegra",
+    "python": "3.12.3",
+    "l4t": "# R39 (release), REVISION: 2.1, GCID: 46758480, BOARD: generic, EABI: aarch64, DATE: Fri Aug  7 05:54:22 AM UTC 2026",
+    "os_release": "PRETTY_NAME=\"Ubuntu 24.04.4 LTS\"",
+    "nvpmodel": "NV Power Mode: MAXN_SUPER 2",
+    "cpu0_cur_khz": "1728000",
+    "cpu0_max_khz": "1728000",
+    "gpu_cur_hz": "1020000000",
+    "jetson_clocks": "not applied by harness (sudo needs password); clocks read as pinned instead",
+    "torch": "2.15.0+cu132 13.2",
+    "torch_arch_list": "['sm_80', 'sm_90', 'sm_100', 'sm_110', 'sm_120']",
+    "note_arch": "no sm_87 cubin; sm_80 executes on sm_87 via major-version binary compatibility",
+    "flash_attn": "absent, use_flash_attn patched to False, torch SDPA fallback",
+    "utc": "2026-11-10T09:12:39.565527Z"
+  },
+  "model": {
+    "ckpt_dir": "/home/nvidia/evo_weights/lib/libero_spatial",
+    "run_name": "Evo_da3_film_true_masked_spatial_3stages_stage3_test12w",
+    "image_size": 448,
+    "horizon": 50,
+    "per_action_dim": 24,
+    "num_inference_timesteps": 50,
+    "use_da3": true,
+    "vlm": "InternVL3-1B (bf16)",
+    "precision": "bf16 autocast"
+  },
+  "protocol": {
+    "script": "Evo_depth/scripts/benchmark_evo_depth.py",
+    "num_warmup": 5,
+    "num_iterations": 30,
+    "input_mode": "random",
+    "scope": "single process, model loaded once, no websocket in the loop",
+    "not_used": "benchmark_max_perf.sh (its sudo nvpmodel/jetson_clocks steps need a password)"
+  },
+  "results": {
+    "avg_ms": 2033.25,
+    "median_ms": 2033.04,
+    "p99_ms": 2042.52,
+    "std_ms": 3.79,
+    "fps": 0.49,
+    "mem_avg_mb": 2631.47,
+    "mem_peak_mb": 3151.97,
+    "power_avg_w": 7.59,
+    "power_max_w": 7.63,
+    "iterations": 30
+  },
+  "smoke": {
+    "transport": "websocket JSON",
+    "payload_mb": 9.5,
+    "round_trip_s": 3.749,
+    "actions_shape": [
+      50,
+      24
+    ],
+    "finite": true,
+    "protocol_overhead_s": 1.716,
+    "note": "overhead = 3.749 - 2.033, i.e. json encode/decode plus transfer of 3x448x448x3 uint8 as nested lists"
+  },
+  "comparison": {
+    "doc": "docs/benchmark_report_20260611.md",
+    "doc_avg_ms": 5524.94,
+    "doc_fps": 0.18,
+    "doc_env": "JetPack 6, torch 2.5, flash-attn present",
+    "ratio_speedup": 2.72,
+    "caveat": "different JetPack, torch and attention path; not an A/B"
+  },
+  "validity": {
+    "execution": "pass",
+    "instrumentation": "pass",
+    "accuracy": "not measured (random input, no reference actions)",
+    "sim_eval": "not run (LIBERO client not set up)"
+  },
+  "known_gaps": [
+    "accuracy still unmeasured (random input, no reference actions)",
+    "LIBERO simulation eval still not run"
+  ],
+  "breakdown": {
+    "source": "tools/bench_breakdown.py, results/jp7-evo-depth-breakdown-20261110.json",
+    "iters": 10,
+    "warmup": 3,
+    "vl_embeddings_ms_p50": 1276.35,
+    "predict_action_ms_p50": 831.36,
+    "prepare_state_ms_p50": 0.05,
+    "run_inference_ms_p50_in_breakdown_harness": 2106.88,
+    "shares_pct": {
+      "vision_internvl3_da3": 60.6,
+      "action_head_flowmatching": 39.5
+    },
+    "stage_sum_vs_total_gap_ms": -0.9,
+    "per_flow_step_ms": 16.63,
+    "note": "the 2106.88 here is 3.6% above the official 2033 because staging adds a synchronize and alloc churn per stage; the official run stays the headline number"
+  },
+  "mask_equivalence": {
+    "tested": [
+      "zeros(1) (repo benchmark)",
+      "[1,1,0] (LIBERO client)"
+    ],
+    "result": "vl 1276.35 vs 1277.00 ms, action 831.36 vs 828.99 ms, total 2106.88 vs 2109.92 ms",
+    "conclusion": "no material difference; the benchmark's zeros(1) mask is not a protocol mismatch"
+  }
+}

@@ -1,0 +1,50 @@
+# ===== deep learning core =====
+torch==2.5.1
+torchvision==0.20.1
+transformers==4.39.0
+accelerate
+accelerator
+deepspeed
+diffusers
+timm
+einop
+xformers
+ninja
+
+# ===== data & numeric =====
+numpy<2
+pandas
+pyarrow
+matplotlib
+
+# ===== vision / geometry =====
+opencv-python
+open3d
+trimesh
+e3nn
+fvcore
+pycolmap
+plyfile
+av
+
+# ===== model / io / utils =====
+huggingface_hub
+imageio
+pillow
+pillow_heif
+safetensors
+omegaconf
+moviepy==1.0.3
+requests
+evo
+
+# ===== training / logging =====
+wandb
+swanlab
+
+# ===== system / service =====
+fastapi
+uvicorn
+websockets
+typer>=0.9.0
+pre-commit

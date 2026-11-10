@@ -1,0 +1,45 @@
+# MetaWorld MT50 evaluation defaults for metaworld_client.py
+# Paths below are relative to this YAML file unless absolute.
+
+server_url: ws://127.0.0.1:9000
+
+# Where to write logs and episode videos (a timestamped subfolder is created per run).
+log_dir: ./metaworld_logs
+
+# Task order and difficulty groups (shipped next to this file in the repo).
+order_json: mt50_order.json
+tasks_jsonl: tasks.jsonl
+
+# Gym / rendering
+mujoco_gl: egl
+camera_name: corner2
+img_width: 448
+img_height: 448
+
+# Rollout
+seed: 10
+episodes_per_task: 10
+episode_horizon: 400
+target_level: all
+# target_level: one of all | easy | medium | hard | very_hard (requires order_json with groups)
+
+state_take: 8
+action_horizon: 17
+
+# If order_json is missing, evaluate this many MT50 env indices in order 0..N-1.
+fallback_use_first_n: 5
+
+# Video
+save_video: true
+video_fps: 10
+video_dup_frames: 1
+
+# Debug
+show_window: false
+save_image: false
+inspect_sample_per_episode: true
+inspect_dir: inspect_frames
+apply_rot_180: true
+apply_center_crop: true
+crop_keep_ratio: 0.6666666666666666
+inspect_save_step_tag: true

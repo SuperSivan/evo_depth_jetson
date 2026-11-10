@@ -1,0 +1,33 @@
+# Evo-Depth 推理依赖，已在 Jetson Orin Nano / JetPack 7 (R39.2.1) / Python 3.12.3 上实测
+#
+# 与 requirements.txt 的区别：那份锁定的是上游假设的 JetPack 6 / Python 3.10 / torch 2.5。
+# 本机没有可用的 sm_87 Jetson 轮子，torch 走 PyPI 官方 aarch64 构建（自带 CUDA 13 运行库）。
+#
+# 用途：跑 websocket 推理服务、冒烟测试、测速。训练（accelerate + deepspeed）不在此列。
+
+torch==2.15.0
+torchvision==0.29.2
+
+transformers==4.57.0
+timm==1.0.27
+tokenizers==0.22.2
+
+numpy==2.5.4
+scipy==1.17.1
+einops==0.8.2
+addict==2.4.0
+safetensors==0.8.0
+accelerate==1.15.0
+omegaconf==2.4.0
+tqdm==4.70.1
+sentencepiece==0.2.3
+
+opencv-python-headless==4.11.0.86
+pillow==13.0.0
+imageio==2.38.1
+fvcore==0.1.5.post20221221
+evo==1.36.5
+websockets==17.4
+
+# 不装：flash-attn（8 GB 内存编译不可行）、gsplat、pycolmap、xformers、open3d。
+# 推理路径不依赖它们；pycolmap 与 gsplat 只出现在导出/渲染工具里，见 patches/jp7-deploy.patch。

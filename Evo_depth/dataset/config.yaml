@@ -1,0 +1,65 @@
+# do not change max_action_dim, max_state_dim, max_views
+max_action_dim: 24
+max_state_dim: 24
+max_views: 3
+
+data_groups:
+  ##############################################################################
+  # Your embodiment_name:
+  #   your_dataset_name:
+  #     path: /path/to/your/dataset
+  #     view_map:
+  #       image_1: observation.images.image_1
+  #       image_2: observation.images.image_2
+  #       image_3: observation.images.image_3
+################################################################################
+
+
+
+
+  # MetaWorld (LeRobot layout): under `path` expect meta/tasks.jsonl, meta/episodes.jsonl,
+  # meta/episodes_stats.jsonl or meta/stats.json, data/*/*.parquet, and videos/<chunk>/<view>/episode_*.mp4.
+  # view_map values are folder names under videos/<chunk>/ (see lerobot_dataset_pretrain_mp.py).
+  # Single fixed camera (e.g. MT50 corner): map only image_1; the dataloader pads to max_views=3
+  # with zeros and matches EvoDepth inference with image_mask [1,0,0].
+  metaworld_sawyer:
+    Evo_depth_MetaWorld:
+      path: /path/to/Evo_depth_MetaWorld_Dataset
+      view_map:
+        image_1: observation.images.image
+
+
+  # This is an example of how to configure multi-task training for LIBERO.
+  # The libero dataset is from https://huggingface.co/collections/IPEC-COMMUNITY/libero-benchmark-dataset
+
+  # libero_franka:
+  #   libero_spatial_no_noops_1.0.0_lerobot:
+  #     path: /path/to/datasets/libero_spatial_no_noops_1.0.0_lerobot
+  #     view_map:
+  #       image_1: observation.images.image
+  #       image_2: observation.images.wrist_image
+
+  #   libero_object_no_noops_1.0.0_lerobot:
+  #     path: /path/to/datasets/libero_object_no_noops_1.0.0_lerobot
+  #     view_map:
+  #       image_1: observation.images.image
+  #       image_2: observation.images.wrist_image
+
+  #   libero_goal_no_noops_1.0.0_lerobot:
+  #     path: /path/to/datasets/libero_goal_no_noops_1.0.0_lerobot
+  #     view_map:
+  #       image_1: observation.images.image
+  #       image_2: observation.images.wrist_image
+
+  #   libero_10_no_noops_1.0.0_lerobot:
+  #     path: /path/to/datasets/libero_10_no_noops_1.0.0_lerobot
+  #     view_map:
+  #       image_1: observation.images.image
+  #       image_2: observation.images.wrist_image
+
+
+
+
+
+
+
