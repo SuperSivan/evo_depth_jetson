@@ -3,70 +3,70 @@
     "label": "benchmark-compatible image_mask=zeros(1)",
     "mask_len": 1,
     "iters": 10,
-    "warmup": 3,
+    "warmup": 4,
     "vl_embeddings_ms": {
       "n": 10,
-      "mean": 1306.7,
-      "p50": 1276.35,
-      "min": 1271.07,
-      "max": 1579.34
+      "mean": 804.62,
+      "p50": 805.02,
+      "min": 798.92,
+      "max": 810.3
     },
     "prepare_state_ms": {
       "n": 10,
-      "mean": 0.06,
-      "p50": 0.05,
-      "min": 0.04,
-      "max": 0.08
+      "mean": 0.07,
+      "p50": 0.06,
+      "min": 0.05,
+      "max": 0.09
     },
     "predict_action_ms": {
       "n": 10,
-      "mean": 830.98,
-      "p50": 831.36,
-      "min": 820.43,
-      "max": 840.85
+      "mean": 241.45,
+      "p50": 241.25,
+      "min": 241.0,
+      "max": 241.99
     },
     "run_inference_ms": {
       "n": 10,
-      "mean": 2105.89,
-      "p50": 2106.88,
-      "min": 2090.81,
-      "max": 2113.46
+      "mean": 1043.65,
+      "p50": 1044.24,
+      "min": 1040.49,
+      "max": 1047.25
     },
-    "sum_of_stages_mean": 2137.74
+    "sum_of_stages_mean": 1046.14
   },
   {
     "label": "LIBERO client image_mask=[1,1,0]",
     "mask_len": 3,
     "iters": 10,
-    "warmup": 3,
+    "warmup": 4,
     "vl_embeddings_ms": {
       "n": 10,
-      "mean": 1277.73,
-      "p50": 1277.0,
-      "min": 1271.67,
-      "max": 1283.61
+      "mean": 810.44,
+      "p50": 809.84,
+      "min": 807.49,
+      "max": 817.84
     },
     "prepare_state_ms": {
       "n": 10,
-      "mean": 0.05,
-      "p50": 0.04,
-      "min": 0.04,
-      "max": 0.07
+      "mean": 0.07,
+      "p50": 0.07,
+      "min": 0.05,
+      "max": 0.09
     },
     "predict_action_ms": {
       "n": 10,
-      "mean": 829.0,
-      "p50": 828.99,
-      "min": 826.2,
-      "max": 831.9
+      "mean": 240.62,
+      "p50": 240.61,
+      "min": 240.41,
+      "max": 240.89
     },
     "run_inference_ms": {
       "n": 10,
-      "mean": 2108.13,
-      "p50": 2109.92,
-      "min": 2090.92,
-      "max": 2117.88
+      "mean": 1051.0,
+      "p50": 1050.81,
+      "min": 1047.54,
+      "max": 1055.95
     },
-    "sum_of_stages_mean": 2106.78
+    "sum_of_stages_mean": 1051.14
   }
 ]

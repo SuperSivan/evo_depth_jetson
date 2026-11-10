@@ -1,4 +1,5 @@
 # model/internvl3/internvl3_embedder.py
+import os
 import torch
 from PIL import Image
 import torch
@@ -146,12 +147,25 @@ class InternVL3Embedder(nn.Module):
     ) -> (torch.Tensor, List[int]):
 
         pixel_values_list = []
+        size = self.image_size
+        fast = all(isinstance(t, torch.Tensor) and t.dim() == 3 and t.shape[0] == 3
+                   and tuple(t.shape[-2:]) == (size, size) for t in image_tensors)
+        if fast:
+            _dev = image_tensors[0].device if isinstance(image_tensors[0], torch.Tensor) else "cpu"
+            mean = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32, device=_dev).view(1, 3, 1, 1)
+            std = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32, device=_dev).view(1, 3, 1, 1)
+            batch = torch.stack([t.float() for t in image_tensors])
+            # reproduce the PIL 8-bit round trip exactly
+            batch = (batch * 255).round().div(255)
+            batch = (batch.reshape(-1, 3, size, size) - mean) / std
+            pixel_values_list = [batch[i:i + 1] for i in range(batch.shape[0])]
         for i, image in enumerate(image_tensors):
-            if isinstance(image, torch.Tensor):
-                image = to_pil_image(image)
-            tiles = dynamic_preprocess(image, image_size=self.image_size)
-            tile_tensors = torch.stack([self.transform(t) for t in tiles])  # (T_i, 3, 448, 448)
-            pixel_values_list.append(tile_tensors)
+            if not fast:
+                if isinstance(image, torch.Tensor):
+                    image = to_pil_image(image)
+                tiles = dynamic_preprocess(image, image_size=size)
+                tile_tensors = torch.stack([self.transform(t) for t in tiles])  # (T_i, 3, 448, 448)
+                pixel_values_list.append(tile_tensors)
 
         pixel_values = torch.cat(pixel_values_list, dim=0).to(dtype=torch.bfloat16, device=self.device)
         num_tiles_list = [pv.shape[0] for pv in pixel_values_list]
@@ -189,22 +203,30 @@ class InternVL3Embedder(nn.Module):
         num_tiles_list: List[int]
     ) -> (torch.Tensor, torch.Tensor):
    
-        untruncated_ids = self.tokenizer(prompt, return_tensors="pt").input_ids
-        true_sequence_length = untruncated_ids.shape[1]
+        if not hasattr(self, "_tok_cache"):
+            self._tok_cache = {}
+        cached = self._tok_cache.get(prompt)
+        if cached is not None:
+            input_ids = cached[0].clone()
+            attention_mask = cached[1].clone()
+            true_sequence_length = input_ids.shape[1]
+        else:
+            untruncated_ids = self.tokenizer(prompt, return_tensors="pt").input_ids
+            true_sequence_length = untruncated_ids.shape[1]
+            model_inputs = self.tokenizer(prompt, return_tensors="pt", padding="max_length",
+                                          truncation=True, max_length=self.max_text_length).to(self.device)
+            input_ids = model_inputs["input_ids"]
+            attention_mask = model_inputs["attention_mask"]
+            self._tok_cache = {prompt: (input_ids.clone(), attention_mask.clone())}
 
         if true_sequence_length > self.max_text_length:
-            print("\n" + "="*80)
-            print(f" WARNING: Input prompt was TRUNCATED!")
+            print("\n" + "=" * 80)
+            print(" WARNING: Input prompt was TRUNCATED!")
             print(f"   - Max Length Allowed    : {self.max_text_length}")
             print(f"   - Actual Length      : {true_sequence_length}")
-            print(f"   - Truncated Prompt (first 100 chars): '{prompt[:100]}...'")
-            print("="*80 + "\n")
+            print(f"   - Truncated Prompt (first 100 chars): {prompt[:100]!r}...")
+            print("=" * 80 + "\n")
 
-        model_inputs = self.tokenizer(prompt, return_tensors="pt", padding='max_length', truncation=True, max_length=self.max_text_length).to(self.device)
-        input_ids = model_inputs["input_ids"]
-        attention_mask = model_inputs["attention_mask"]
-
-       
         img_token_mask = (input_ids == self.img_context_token_id)
      
         img_token_locations = torch.where(img_token_mask)[1]
@@ -232,29 +254,26 @@ class InternVL3Embedder(nn.Module):
  
         tokens_per_tile = self.model.num_image_token 
  
-        torch.set_printoptions(profile="full", threshold=float('inf'))
    
-        torch.set_printoptions(profile="default")
+        locs = img_token_locations.detach().cpu()
+        zero_ranges = []
         current_token_idx = 0
         for i in range(len(image_mask)):
-           
-            num_tiles_for_this_image = num_tiles_list[i]
-            num_tokens_for_this_image = num_tiles_for_this_image * tokens_per_tile
-       
-            if not image_mask[i]:
-                
-                start_idx = img_token_locations[current_token_idx]
-                end_idx = start_idx + num_tokens_for_this_image
-               
-                attention_mask[0, start_idx:end_idx] = 0
-    
+            num_tokens_for_this_image = num_tiles_list[i] * tokens_per_tile
+            if not bool(image_mask[i]):
+                start_idx = int(locs[current_token_idx].item())
+                zero_ranges.append((start_idx, start_idx + num_tokens_for_this_image))
             current_token_idx += num_tokens_for_this_image
+        if zero_ranges:
+            zero = torch.zeros(attention_mask.shape[-1], dtype=torch.bool)
+            for s0, e0 in zero_ranges:
+                zero[s0:e0] = True
+            attention_mask = attention_mask.clone()
+            attention_mask[0, zero.to(attention_mask.device)] = 0
 
         input_embeds = input_embeds.reshape(B, N, C)
     
-        torch.set_printoptions(profile="full", threshold=float('inf'))
      
-        torch.set_printoptions(profile="default")
         return input_embeds, attention_mask
 
 
@@ -274,7 +293,12 @@ class InternVL3Embedder(nn.Module):
            
             print("Warning: No valid images to process after masking.")
 
-        vit_embeds = self.model.extract_feature(pixel_values)
+        _trt_engine = os.environ.get("EVO_DEPTH_TRT_VI_ENGINE")
+        if _trt_engine:
+            from model.internvl3.trt_vi import extract_features as _trt_vi
+            vit_embeds = _trt_vi(pixel_values, _trt_engine)
+        else:
+            vit_embeds = self.model.extract_feature(pixel_values)
         
         if self.use_da3:
             fused_embeds = vit_embeds

@@ -164,3 +164,10 @@ simulator_evaluation/VLA-Arena-evaluation/VLA-Arena/
 simulator_evaluation/LIBERO-evaluation/logs/
 # Board login details; do not publish
 ACCESS.md
+
+# Local TensorRT engines and ONNX/export artifacts; do not publish
+export/
+*.engine
+*.onnx
+evo_trtexec_parity.log
+results/action_fast*.npy

@@ -85,23 +85,56 @@ python tools/bench_breakdown.py     # 分段耗时
 
 本机实测（`libero_spatial`，50 步采样，bf16，MAXN_SUPER 且时钟已锁）：
 
-| 指标 | 数值 |
-|---|---|
-| 平均 / 中位 / P99 延迟 | 2033.25 / 2033.04 / 2042.52 ms |
-| 吞吐 | 0.49 FPS |
-| 显存 平均 / 峰值 | 2631 / 3152 MB |
-| 功耗 平均 / 峰值 | 7.59 / 7.63 W |
-| 分段占比 | vision(InternVL3-1B+DA3) 1276 ms / 60.6%，动作头 831 ms / 39.5% |
+| 指标 | 朴素路径 | 优化后 |
+|---|---:|---:|
+| 平均 / 中位 / P99 延迟 | 2033.25 / 2033.04 / 2042.52 ms | **977.91 / 965.99 / 1190.42 ms** |
+| 吞吐 | 0.49 FPS | **1.02 FPS** |
+| 显存 平均 / 峰值 | 2631 / 3152 MB | 2440 / 2656 MB |
+| 功耗 平均 | 7.59 W | 7.48 W |
+
+优化后的三项由环境变量开启（InternViT 的 TRT 引擎、动作头 K/V 预计算、CUDA graph），
+不用它们就是朴素路径。改动的单段收益与数值校验见 [DEPLOY_NOTES.md](DEPLOY_NOTES.md) 第 8 节。
 
 websocket 往返 3.749 s，其中 1.716 s 是 9.5 MB JSON 的编解码与传输。
 分段明细与对照见 [DEPLOY_NOTES.md](DEPLOY_NOTES.md) 第 5、7 节，原始数据在 `results/`。
+
+## 推理优化（可选）
+
+三项由环境变量开启，不设就是朴素路径：
+
+```bash
+export EVO_DEPTH_TRT_VI_ENGINE=~/evo_depth_jetson/export/internvit_fp16.engine
+export EVO_DEPTH_FAST_ATTN=1
+export EVO_DEPTH_CUDA_GRAPH=1
+```
+
+实测 2033.25 → 977.91 ms（2.08 倍），0.49 → 1.02 FPS，峰值显存少 496 MB。
+
+TRT 引擎**必须在板子上构建**，引擎与 GPU 架构、CUDA 版本、TensorRT 版本三者绑定，别处编的加载不了。重建方式：
+
+```bash
+source .venv-py/bin/activate
+python tools/export_extract_feature.py                      # -> export/internvit_extract_feature.onnx
+trtexec --onnx=export/internvit_extract_feature.onnx --fp16 \
+        --saveEngine=export/internvit_fp16.engine --memPoolSize=workspace:1024
+bash tools/parity_vi.sh                                     # 余弦门槛 0.999
+```
+
+导出的引擎（约 630 MB）不进仓库，只在本机生成；ONNX 用完即可删，需要时按上面的命令重导。
+
+配套脚本：`tools/bench_breakdown.py` 分段耗时，`tools/profile_vision.py` 拆 vision 内部六段，
+`tools/profile_da3.py` 拆 DA3 的主机往返与网络，`tools/parity_action_head.py` 逐值对比动作块。
+
+DA3 的 TRT 化验证过但放弃了，原因见 [DEPLOY_NOTES.md](DEPLOY_NOTES.md) 第 8 节。
+全部改动记录在 [patches/jp7-optimize.patch](patches/jp7-optimize.patch)。
 
 ## 文档与产物
 
 | 文件 | 内容 |
 |---|---|
 | [DEPLOY_NOTES.md](DEPLOY_NOTES.md) | 环境选型、权重、协议细节、实测数据与限制 |
-| [ACCESS.md](ACCESS.md) | 板子的访问链路 |
-| [patches/jp7-deploy.patch](patches/jp7-deploy.patch) | 全部代码改动（可回滚，各文件旁有 `.orig`） |
-| `results/` | 测速结果 JSON |
-| `tools/` | 冒烟客户端与分段测速脚本 |
+| [patches/jp7-deploy.patch](patches/jp7-deploy.patch) | 部署期的代码改动（flash-attn 关闭、export 惰性导入） |
+| [patches/jp7-optimize.patch](patches/jp7-optimize.patch) | 推理优化的全部改动，13 个文件 |
+| `requirements-jp7.txt` | 本机实测可用的依赖锁定版本 |
+| `results/` | 测速与分段的 JSON，含每项优化的校验结果 |
+| `tools/` | 冒烟客户端、分段探针、导出与 parity 脚本 |

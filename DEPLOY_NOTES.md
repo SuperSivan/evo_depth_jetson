@@ -1,7 +1,6 @@
 # evo_depth_jetson 在 Orin Nano (JP7) 上的部署记录
 
-部署日期 2026-11-09。目标板：`nvidia@172.25.80.139`，经 124 跳板访问。
-板端仓库路径 `/home/nvidia/evo_depth_jetson`。
+部署日期 2026-11-09。目标板：Jetson Orin Nano。仓库路径以本机 `~/evo_depth_jetson` 为准。
 
 ## 1. 环境与仓库预期不符
 
@@ -133,3 +132,27 @@ MAXN_SUPER 且 CPU 1728MHz / GPU 1020MHz 已锁频）：
    之前担心的「基准与真实推理口径不一致」不成立。
 
 仍未测：精度（随机输入，无参考动作），以及 LIBERO 仿真评测。
+
+## 8. 推理优化（2026-11-10）
+
+基线 2033.25 ms 降到 977.91 ms，2.08 倍，0.49 → 1.02 FPS，峰值显存少 496 MB。
+四项改动各自独立、可用环境变量单独回退，明细见 `results/jp7-evo-depth-optimized-20261110.json`。
+
+| 改动 | 开关 | 单段 | 校验 |
+|---|---|---|---|
+| InternViT 走 TRT FP16 引擎 | `EVO_DEPTH_TRT_VI_ENGINE` | 736.65 → 237.5 ms | 余弦 0.99990 |
+| 动作头 context K/V 每观测一次 | `EVO_DEPTH_FAST_ATTN` | 959.56 → 703.19 ms | 余弦 0.9999998 |
+| 50 步采样循环 CUDA graph | `EVO_DEPTH_CUDA_GRAPH` | 703.19 → 241.25 ms | 逐位相同 |
+| prompt 融合缓存 + 向量化 | 默认开 | 48.58 → 2.71 ms | 逐位相同 |
+| 预处理 torch 快路径 | 默认开 | 33.59 → ~18 ms | max_abs 0.0054 |
+
+踩过的坑，都值得记住：
+
+1. **TRT 引擎必须 fp32 导出、`trtexec --fp16` 决定精度**。直接把模型 `.half()` 再导出，等于换了模型。
+2. **模型从 `load_model_and_normalizer` 出来是 bf16**，fp32 分支必须显式 `.float()`；否则导出的是 bf16 与 fp32 初始化器混杂的图，文件大小会和 fp16 版几乎一样，不看就会误判。
+3. `torch.cartesian_prod` 没有 ONNX symbolic，用 `meshgrid(indexing='ij')` + `stack` 替换是精确等价的（已用 `torch.equal` 验证）。
+4. **DA3 的 TRT 化放弃了**：引擎 124.37 ms（PyTorch 259.45），但导出图 token 顺序错位，
+   逐 token 余弦中位 0.9974、整体只有 0.890，排序后能回到 0.9996。根因是 PyTorch 对非连续张量
+   做 `view` 会隐式拷贝重排，ONNX `Reshape` 按逻辑行主序解释。修它要逐层二分 DPT 头的形状变换，
+   收益只有 135 ms，不值得。
+5. **CUDA graph 复用静态缓冲**：同一进程里不要用两个线程并发调用 `get_action`。

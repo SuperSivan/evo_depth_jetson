@@ -1,0 +1,99 @@
+{
+  "label": "evo-depth.libero_spatial.optimized",
+  "baseline": {
+    "avg_ms": 2033.25,
+    "fps": 0.49,
+    "mem_peak_mb": 3151.97,
+    "std_ms": 3.79,
+    "source": "results/jp7-evo-depth-libero_spatial-20261109.json"
+  },
+  "optimized": {
+    "avg_ms": 977.91,
+    "median_ms": 965.99,
+    "p99_ms": 1190.42,
+    "std_ms": 55.43,
+    "fps": 1.02,
+    "mem_avg_mb": 2440.4,
+    "mem_peak_mb": 2655.78,
+    "power_avg_w": 7.48,
+    "iterations": 30,
+    "warmup": 5,
+    "input_mode": "random",
+    "note": "clean run after killing stray processes; tail latency varies between runs (std 7.7 to 55 ms across runs)"
+  },
+  "speedup": {
+    "latency_x": 2.08,
+    "fps_x": 2.08,
+    "peak_mem_saved_mb": 496
+  },
+  "changes": [
+    {
+      "name": "InternViT via TensorRT FP16 engine",
+      "env": "EVO_DEPTH_TRT_VI_ENGINE",
+      "stage_ms": {
+        "before": 736.65,
+        "after": 237.5
+      },
+      "validation": "cosine 0.99990, mean_abs 0.0060 on the 256x896 features",
+      "artifacts": [
+        "export/internvit_extract_feature.onnx",
+        "export/internvit_fp16.engine"
+      ],
+      "how": "torch.onnx.export in fp32, trtexec --fp16 (fp32 accumulate); one 1x3x448x448 engine call per tile"
+    },
+    {
+      "name": "action head: context K/V computed once per observation",
+      "env": "EVO_DEPTH_FAST_ATTN",
+      "stage_ms": {
+        "before": 959.56,
+        "after": 703.19
+      },
+      "validation": "cosine 0.99999976 (bf16 rounding only)",
+      "how": "replaced per-step nn.MultiheadAttention cross-attention with split_proj once + SDPA per step"
+    },
+    {
+      "name": "action head: 50-step sampling loop captured as a CUDA graph",
+      "env": "EVO_DEPTH_CUDA_GRAPH",
+      "stage_ms": {
+        "before": 703.19,
+        "after": 241.25
+      },
+      "validation": "bit-identical to eager (array_equal)",
+      "how": "side-stream warmup, torch.cuda.graph capture, copy_ into static buffers, replay"
+    },
+    {
+      "name": "prompt fusion: tokenizer cache + vectorised mask",
+      "env": "always on",
+      "stage_ms": {
+        "before": 48.58,
+        "after": 2.71
+      },
+      "validation": "action chunk bit-identical (max_abs 0)",
+      "how": "one tokenization per prompt, host-side position read, single vectorised attention-mask zeroing"
+    },
+    {
+      "name": "image preprocessing: torch fast path instead of PIL round trip",
+      "env": "always on (auto, only for square RGB tensors of image_size)",
+      "stage_ms": {
+        "before": 33.59,
+        "after": 18.0
+      },
+      "validation": "action max_abs 0.0054, mean 0.0011 (bf16 rounding) - NOT bit-identical: bicubic resize at the same size is not an exact identity",
+      "how": "quantise to 8 bit like PIL does, normalise with ImageNet stats, skip dynamic_preprocess for square inputs"
+    }
+  ],
+  "attempted_and_dropped": [
+    {
+      "name": "DA3 DPT via TensorRT",
+      "engine_ms": 124.37,
+      "pytorch_ms": 259.45,
+      "dropped_because": "exported graph permutes tokens: per-token cosine median 0.9974 but overall 0.890; sorted row means match at 0.9996. A PyTorch view() on a non-contiguous tensor maps to a different element order than ONNX Reshape.",
+      "note": "gain would have been 135 ms (13%); fix needs per-op bisection of the DPT head shape transforms"
+    }
+  ],
+  "caveats": [
+    "random input; no accuracy measurement on real observations",
+    "LIBERO simulation eval still not run",
+    "CUDA graph reuses static buffers: do not call get_action concurrently from two threads in one process"
+  ]
+}

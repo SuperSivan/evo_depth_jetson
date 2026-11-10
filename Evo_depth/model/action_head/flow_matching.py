@@ -1,3 +1,4 @@
+import os
 import math
 import torch
 import torch.nn as nn
@@ -126,10 +127,14 @@ class BasicTransformerBlock(nn.Module):
             nn.Linear(hidden_dim, embed_dim)
         )
 
-    def forward(self, action_tokens: torch.Tensor, context_tokens: torch.Tensor, time_emb: torch.Tensor):
+    def forward(self, action_tokens: torch.Tensor, context_tokens: torch.Tensor, time_emb: torch.Tensor, ctx_kv=None):
 
         x = self.norm1(action_tokens)
-        attn_out, _ = self.attn(x, context_tokens, context_tokens)
+        if ctx_kv is not None:
+            from model.action_head.fast_attn import attend
+            attn_out = attend(self.attn, x, ctx_kv)
+        else:
+            attn_out, _ = self.attn(x, context_tokens, context_tokens)
 
         x = action_tokens + attn_out
 
@@ -306,8 +311,6 @@ class FlowmatchingActionHead(nn.Module):
 
     def get_action(self, fused_tokens: torch.Tensor, state: torch.Tensor = None, embodiment_id: torch.LongTensor = None, action_mask: torch.Tensor = None):
 
-        print(f"action_mask shape: {action_mask.shape if action_mask is not None else 'None'}")
-        print(f"one sample action_mask: {action_mask[0] if action_mask is not None else 'None'}")
 
         B = fused_tokens.size(0)
         device = fused_tokens.device
@@ -331,8 +334,6 @@ class FlowmatchingActionHead(nn.Module):
             per_action_dim = action_dim_total
 
         action = (torch.rand(B, action_dim_total, device=device) * 2 - 1)
-        print(f"action shape: {action.shape}")
-        print(f"one sample action: {action[0]}")
 
         if self.horizon > 1:
             action_seq = action.view(B, self.horizon, per_action_dim)
@@ -342,8 +343,6 @@ class FlowmatchingActionHead(nn.Module):
 
         action_mask = action_mask.view(B, 1, per_action_dim).repeat(1,self.horizon,1)
 
-        print(f"action_mask: {action_mask}")
-        print(f"one sample action_mask: {action_mask[0]}")
 
         if action_mask is not None:
             action_mask = action_mask.to(dtype=action_seq.dtype, device=action_seq.device)
@@ -351,56 +350,92 @@ class FlowmatchingActionHead(nn.Module):
             action_seq = action_seq * action_mask
         else:
             raise ValueError("action_mask must be provided for inference with flow matching.")
-        print(f"action shape: {action_seq.shape}")
-        print(f"one sample action: {action_seq[0]}")
 
         N = int(getattr(self.config, "num_inference_timesteps", 32))
         dt = 1.0 / N
+        if os.environ.get("EVO_DEPTH_CUDA_GRAPH", "0") == "1" and action_seq.is_cuda:
+            return self._denoise_graph(action, action_seq, action_mask, context_tokens,
+                                       embodiment_id, B, per_action_dim, dt, N, device)
+        return self._denoise(action, action_seq, action_mask, context_tokens,
+                             embodiment_id, B, per_action_dim, dt, N, device)
+
+    def _denoise(self, action, action_seq, action_mask, context_tokens, embodiment_id,
+                 B, per_action_dim, dt, N, device):
+        """The full N-step flow sampling loop. Captured as a CUDA graph when enabled."""
+        ctx_kv_cache = None
+        if os.environ.get("EVO_DEPTH_FAST_ATTN", "0") == "1":
+            from model.action_head.fast_attn import split_proj
+            ctx_kv_cache = [split_proj(b.attn, context_tokens) for b in self.transformer_blocks]
+
         for i in range(N):
-            t = i / N 
-
-            time_index = int(t * 1000)
-            time_emb = self.time_pos_enc(1000)[:, time_index, :].to(device).squeeze(0)  
-            time_emb = time_emb.unsqueeze(0).repeat(B, 1)  
-
+            time_index = int((i / N) * 1000)
+            time_emb = self.time_pos_enc(1000)[:, time_index, :].to(device).squeeze(0)
+            time_emb = time_emb.unsqueeze(0).repeat(B, 1)
 
             if self.horizon > 1 and self.action_encoder is not None:
-
                 action_seq = action_seq * action_mask
-                action_tokens = self.action_encoder(action_seq, embodiment_id) 
+                action_tokens = self.action_encoder(action_seq, embodiment_id)
             else:
-                if hasattr(self, "single_action_proj"):
-                    action_tokens = self.single_action_proj(action_seq)  
-                else:
-
+                if not hasattr(self, "single_action_proj"):
                     self.single_action_proj = nn.Linear(per_action_dim, self.embed_dim).to(device)
-                    action_tokens = self.single_action_proj(action_seq)
+                action_tokens = self.single_action_proj(action_seq)
 
             x = action_tokens
-            for block in self.transformer_blocks:
-                x = block(x, context_tokens, time_emb)
+            if ctx_kv_cache is not None:
+                for block, kv in zip(self.transformer_blocks, ctx_kv_cache):
+                    x = block(x, None, time_emb, ctx_kv=kv)
+            else:
+                for block in self.transformer_blocks:
+                    x = block(x, context_tokens, time_emb)
             x = self.norm_out(x)
 
             if self.horizon > 1:
                 x_flat = x.reshape(B, -1)
-                if hasattr(self, "seq_pool_proj"):
-                    x_pooled = self.seq_pool_proj(x_flat)
-                else:
-                   
+                if not hasattr(self, "seq_pool_proj"):
                     self.seq_pool_proj = nn.Linear(self.horizon * self.embed_dim, self.embed_dim).to(device)
-                    x_pooled = self.seq_pool_proj(x_flat)
+                x_pooled = self.seq_pool_proj(x_flat)
             else:
                 x_pooled = x.squeeze(1)
-         
-            pred = self.mlp_head(x_pooled, embodiment_id)  
-  
+
+            pred = self.mlp_head(x_pooled, embodiment_id)
             action = action + dt * pred
-          
-            if self.horizon > 1:
-                action_seq = action.view(B, self.horizon, per_action_dim)
-            else:
-                action_seq = action.view(B, 1, per_action_dim)
-      
+            action_seq = action.view(B, self.horizon if self.horizon > 1 else 1, per_action_dim)
+
+        return action
+
+    def _denoise_graph(self, action, action_seq, action_mask, context_tokens, embodiment_id,
+                       B, per_action_dim, dt, N, device):
+        cache = getattr(self, "_graph_cache", None)
+        if cache is None:
+            cache = self._graph_cache = {}
+        key = (B, tuple(action_seq.shape), tuple(context_tokens.shape), N)
+        if key not in cache:
+            st_action = action.clone()
+            st_seq = action_seq.clone()
+            st_mask = action_mask.clone()
+            st_ctx = context_tokens.clone()
+            st_emb = embodiment_id.clone()
+            side = torch.cuda.Stream()
+            side.wait_stream(torch.cuda.current_stream())
+            with torch.cuda.stream(side):
+                for _ in range(2):
+                    self._denoise(st_action.clone(), st_seq.clone(), st_mask, st_ctx, st_emb,
+                                  B, per_action_dim, dt, N, device)
+            torch.cuda.current_stream().wait_stream(side)
+            graph = torch.cuda.CUDAGraph()
+            with torch.cuda.graph(graph):
+                st_out = self._denoise(st_action, st_seq, st_mask, st_ctx, st_emb,
+                                       B, per_action_dim, dt, N, device)
+            cache[key] = (graph, st_action, st_seq, st_mask, st_ctx, st_emb, st_out)
+        graph, st_action, st_seq, st_mask, st_ctx, st_emb, st_out = cache[key]
+        st_action.copy_(action)
+        st_seq.copy_(action_seq)
+        st_mask.copy_(action_mask)
+        st_ctx.copy_(context_tokens)
+        st_emb.copy_(embodiment_id)
+        graph.replay()
+        return st_out
+
         return action
 
     @property
