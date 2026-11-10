@@ -17,7 +17,7 @@ FAN Dynamic Speed Control=nvfancontrol hwmon0_pwm1=101
 NV Power Mode: MAXN_SUPER
 [benchmark_max_perf] 启动 benchmark
 [93m[WARN ] Dependency `gsplat` is required for rendering 3DGS. Install via: pip install git+https://github.com/nerfstudio-project/gsplat.git@0b4dddf04cb687367602c01196913cde6a743d70[0m
-使用权重目录: /userdata/liuqi/vla/Evo-Depth/simulator_evaluation/LIBERO-evaluation/libero_cfgs/libero_spatial
+使用权重目录: /userdata/user/vla/Evo-Depth/simulator_evaluation/LIBERO-evaluation/libero_cfgs/libero_spatial
 
 加载模型中...
 FlashAttention2 is not installed.
