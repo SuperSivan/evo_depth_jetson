@@ -162,3 +162,5 @@ tmp/
 simulator_evaluation/LIBERO-evaluation/LIBERO/
 simulator_evaluation/VLA-Arena-evaluation/VLA-Arena/
 simulator_evaluation/LIBERO-evaluation/logs/
+# Board login details; do not publish
+ACCESS.md
